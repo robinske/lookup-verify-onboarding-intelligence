@@ -39,10 +39,11 @@ async function runOnboardingIntelligence({ phoneNumber, firstName, lastName }) {
   }
 
   const lineType = normalize(lti?.lineTypeIntelligence?.type);
-  const blockedLineTypes = new Set(["landline", "voip", "fixedvoip", "nonfixedvoip", "fixed_voip", "non_fixed_voip"]);
+  // https://www.twilio.com/docs/lookup/v2-api/line-type-intelligence#type-property-values
+  const blockedLineTypes = new Set(["landline", "nonFixedVoip", "pager"]); 
+  if (blockedLineTypes.has(lineType)) return { ok: false, reason: "LINE_TYPE_BLOCKED", detail: lineType };
 
-  if (blockedLineTypes.has(lineType)) return { ok: false, reason: "LINE_TYPE_BLOCKED" };
-  if (lineType !== "mobile") return { ok: false, reason: "LINE_TYPE_NOT_MOBILE" };
+  console.log("Passed Line Type Intelligence:", lineType);
 
   // ---- 2) Line Status
   let ls;
@@ -54,8 +55,10 @@ async function runOnboardingIntelligence({ phoneNumber, firstName, lastName }) {
 
   const lineStatus = normalize(ls?.lineStatus?.status);
   if (lineStatus === "inactive" || lineStatus === "unreachable") {
-    return { ok: false, reason: "LINE_STATUS_BLOCKED" };
+    return { ok: false, reason: "LINE_STATUS_BLOCKED", detail: lineStatus };
   }
+
+  console.log("Passed Line Status:", lineStatus);
 
   // ---- 3) Identity Match
   let im;
@@ -67,7 +70,9 @@ async function runOnboardingIntelligence({ phoneNumber, firstName, lastName }) {
 
   const summaryScore = Number(im?.identityMatch?.summary_score);
   if (!Number.isFinite(summaryScore)) return { ok: false, reason: "IDENTITY_SCORE_MISSING" };
-  if (summaryScore < 80) return { ok: false, reason: "IDENTITY_SCORE_TOO_LOW" };
+  if (summaryScore < 80) return { ok: false, reason: "IDENTITY_SCORE_TOO_LOW", detail: summaryScore };
+
+  console.log("Passed Identity Match:", im.identityMatch);
 
   return { ok: true };
 }
@@ -101,8 +106,6 @@ app.post("/start", async (req, res) => {
   // ---- 4) Verify: send OTP
   try {
     console.log("Sending OTP to:", phoneNumber);
-    console.log(TWILIO_ACCOUNT_SID);
-    console.log(VERIFY_SERVICE_SID);
     await client.verify.v2
       .services(VERIFY_SERVICE_SID)
       .verifications.create({ to: phoneNumber, channel: "sms" });
