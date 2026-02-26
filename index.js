@@ -40,7 +40,7 @@ async function runOnboardingIntelligence({ phoneNumber, firstName, lastName }) {
 
   const lineType = normalize(lti?.lineTypeIntelligence?.type);
   // https://www.twilio.com/docs/lookup/v2-api/line-type-intelligence#type-property-values
-  const blockedLineTypes = new Set(["landline", "nonFixedVoip", "pager"]); 
+  const blockedLineTypes = new Set(["landline", "nonfixedvoip", "tollfree", "pager"]);
   if (blockedLineTypes.has(lineType)) return { ok: false, reason: "LINE_TYPE_BLOCKED", detail: lineType };
 
   console.log("Passed Line Type Intelligence:", lineType);
