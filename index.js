@@ -53,17 +53,18 @@ async function runOnboardingIntelligence({ phoneNumber, firstName, lastName }) {
   if (!ltiPassed) return { ok: false, reason: "LINE_TYPE_BLOCKED", steps };
 
   // ---- 2) Line Status
-  let ls;
-  try {
-    ls = await lookup("line_status");
-  } catch (e) {
-    return { ok: false, reason: "LOOKUP_FAILED", detail: e.message, steps };
-  }
+  // Uncomment once you have access to the package: https://docs.google.com/forms/d/e/1FAIpQLSfXowQ9dUGgDNc_onA0yj2_Mo3tXxFWK67SpDfOZjONothBYQ/viewform
+  // let ls;
+  // try {
+  //   ls = await lookup("line_status");
+  // } catch (e) {
+  //   return { ok: false, reason: "LOOKUP_FAILED", detail: e.message, steps };
+  // }
 
-  const lineStatus = normalize(ls?.lineStatus?.status);
-  const lsPassed = lineStatus !== "inactive" && lineStatus !== "unreachable";
-  logStep(steps, "Line Status", lineStatus, lsPassed);
-  if (!lsPassed) return { ok: false, reason: "LINE_STATUS_BLOCKED", steps };
+  // const lineStatus = normalize(ls?.lineStatus?.status);
+  // const lsPassed = lineStatus !== "inactive" && lineStatus !== "unreachable";
+  // logStep(steps, "Line Status", lineStatus, lsPassed);
+  // if (!lsPassed) return { ok: false, reason: "LINE_STATUS_BLOCKED", steps };
 
   // ---- 3) Identity Match
   let im;
