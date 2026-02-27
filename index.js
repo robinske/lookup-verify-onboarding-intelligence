@@ -20,6 +20,11 @@ const app = express();
 app.use(express.urlencoded({ extended: false }));
 app.set("view engine", "ejs");
 
+function logStep(steps, label, detail, passed) {
+  steps.push({ label, detail, passed });
+  console.log(passed ? "✅" : "❌", label + ":", detail);
+}
+
 function normalize(str) {
   return String(str || "")
     .trim()
@@ -30,51 +35,52 @@ async function runOnboardingIntelligence({ phoneNumber, firstName, lastName }) {
   const lookup = (fields, params = {}) =>
     client.lookups.v2.phoneNumbers(phoneNumber).fetch({ fields, ...params });
 
+  const steps = [];
+
   // ---- 1) Line Type Intelligence
   let lti;
   try {
     lti = await lookup("line_type_intelligence");
   } catch (e) {
-    return { ok: false, reason: "LOOKUP_FAILED", detail: e.message };
+    return { ok: false, reason: "LOOKUP_FAILED", detail: e.message, steps };
   }
 
   const lineType = normalize(lti?.lineTypeIntelligence?.type);
   // https://www.twilio.com/docs/lookup/v2-api/line-type-intelligence#type-property-values
   const blockedLineTypes = new Set(["landline", "nonfixedvoip", "tollfree", "pager"]);
-  if (blockedLineTypes.has(lineType)) return { ok: false, reason: "LINE_TYPE_BLOCKED", detail: lineType };
-
-  console.log("Passed Line Type Intelligence:", lineType);
+  const ltiPassed = !blockedLineTypes.has(lineType);
+  logStep(steps, "Line Type Intelligence", lineType, ltiPassed);
+  if (!ltiPassed) return { ok: false, reason: "LINE_TYPE_BLOCKED", steps };
 
   // ---- 2) Line Status
   let ls;
   try {
     ls = await lookup("line_status");
   } catch (e) {
-    return { ok: false, reason: "LOOKUP_FAILED", detail: e.message };
+    return { ok: false, reason: "LOOKUP_FAILED", detail: e.message, steps };
   }
 
   const lineStatus = normalize(ls?.lineStatus?.status);
-  if (lineStatus === "inactive" || lineStatus === "unreachable") {
-    return { ok: false, reason: "LINE_STATUS_BLOCKED", detail: lineStatus };
-  }
-
-  console.log("Passed Line Status:", lineStatus);
+  const lsPassed = lineStatus !== "inactive" && lineStatus !== "unreachable";
+  logStep(steps, "Line Status", lineStatus, lsPassed);
+  if (!lsPassed) return { ok: false, reason: "LINE_STATUS_BLOCKED", steps };
 
   // ---- 3) Identity Match
   let im;
   try {
     im = await lookup("identity_match", { firstName, lastName });
   } catch (e) {
-    return { ok: false, reason: "LOOKUP_FAILED", detail: e.message };
+    return { ok: false, reason: "LOOKUP_FAILED", detail: e.message, steps };
   }
 
-  const summaryScore = Number(im?.identityMatch?.summary_score);
-  if (!Number.isFinite(summaryScore)) return { ok: false, reason: "IDENTITY_SCORE_MISSING" };
-  if (summaryScore < 80) return { ok: false, reason: "IDENTITY_SCORE_TOO_LOW", detail: summaryScore };
+  const acceptedMatches = new Set(["exact_match", "high_partial_match"]);
+  const firstNameMatch = im?.identityMatch?.first_name_match;
+  const lastNameMatch = im?.identityMatch?.last_name_match;
+  const imPassed = acceptedMatches.has(firstNameMatch) && acceptedMatches.has(lastNameMatch);
+  logStep(steps, "Identity Match", `first: ${firstNameMatch}, last: ${lastNameMatch}`, imPassed);
+  if (!imPassed) return { ok: false, reason: "IDENTITY_MATCH_FAILED", steps };
 
-  console.log("Passed Identity Match:", im.identityMatch);
-
-  return { ok: true };
+  return { ok: true, steps };
 }
 
 // -------------------- Routes --------------------
@@ -100,7 +106,7 @@ app.post("/start", async (req, res) => {
 
   if (!gate.ok) {
     // boolean pass/fail + reason code (rendered)
-    return res.status(403).render("index", { page: "rejected", title: "Rejected", reason: gate.reason });
+    return res.status(403).render("index", { page: "rejected", title: "Rejected", reason: gate.reason, steps: gate.steps });
   }
 
   // ---- 4) Verify: send OTP
@@ -115,7 +121,7 @@ app.post("/start", async (req, res) => {
     return res.status(500).render("index", { page: "rejected", title: "Error", reason: "OTP_SEND_FAILED" });
   }
 
-  res.render("index", { page: "verify", title: "Verify", phoneNumber });
+  res.render("index", { page: "verify", title: "Verify", phoneNumber, steps: gate.steps });
 });
 
 app.post("/check", async (req, res) => {

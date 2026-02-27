@@ -36,6 +36,11 @@
 
   <% } else if (page === "verify") { %>
   <h1>Enter OTP</h1>
+  <ul>
+    <% steps.forEach(step => { %>
+    <li><%= step.passed ? '✅' : '❌' %> <strong><%= step.label %>:</strong> <code><%= step.detail %></code></li>
+    <% }) %>
+  </ul>
   <p>We sent a code to <code><%= phoneNumber %></code>.</p>
   <form method="POST" action="/check">
    <input type="hidden" name="phoneNumber" value="<%= phoneNumber %>" />
@@ -50,6 +55,13 @@
   <% } else if (page === "rejected") { %>
   <h1><%= title %></h1>
   <p>reason: <code><%= reason %></code></p>
+  <% if (typeof steps !== 'undefined' && steps.length) { %>
+  <ul>
+    <% steps.forEach(step => { %>
+    <li><%= step.passed ? '✅' : '❌' %> <strong><%= step.label %>:</strong> <code><%= step.detail %></code></li>
+    <% }) %>
+  </ul>
+  <% } %>
   <p><a href="/">Back</a></p>
   <% } %>
 
