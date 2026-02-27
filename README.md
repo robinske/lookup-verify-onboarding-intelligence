@@ -4,7 +4,7 @@ flowchart LR
     D -- Yes --> R3[❌ Rejected]
     D -- No --> F{Status = inactive<br/>or unreachable?}
     F -- Yes --> R5[❌ Rejected]
-    F -- No --> I{Identity Match summary_score ≥ 80?}
+    F -- No --> I{Identity Match first & last name<br/>= exact_match or high_partial_match?}
     I -- No --> R8[❌ Rejected]
 
     I -- Yes --> J[Send OTP via Verify]
