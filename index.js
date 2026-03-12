@@ -74,6 +74,12 @@ async function runOnboardingIntelligence({ phoneNumber, firstName, lastName }) {
     return { ok: false, reason: "LOOKUP_FAILED", detail: e.message, steps };
   }
 
+  const imErrorCode = im?.identityMatch?.error_code;
+  if (imErrorCode) {
+    logStep(steps, "Identity Match", `unavailable (error_code: ${imErrorCode})`, false);
+    return { ok: false, reason: "IDENTITY_MATCH_UNAVAILABLE", steps };
+  }
+
   const acceptedMatches = new Set(["exact_match", "high_partial_match"]);
   const firstNameMatch = im?.identityMatch?.first_name_match;
   const lastNameMatch = im?.identityMatch?.last_name_match;
